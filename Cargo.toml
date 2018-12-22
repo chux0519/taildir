@@ -3,6 +3,8 @@ name = "taildir"
 version = "0.1.0"
 authors = ["chux0519 <chuxdesign@hotmail.com>"]
 edition = "2018"
+description = "`tail -f` for directory"
+license = "CC0-1.0"
 
 [dependencies]
 notify = "4.0.0"
