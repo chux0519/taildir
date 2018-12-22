@@ -10,7 +10,11 @@ fn callback(name: &str, logs: Vec<String>) {
     }
 }
 
+fn test_filter(name: &str) -> bool {
+    name.ends_with(".log")
+}
+
 fn main() {
-    let option = taildir::WatchOption::new(String::from("./"), 5);
+    let option = taildir::WatchOption::new(String::from("./test"), 5).file_filter(test_filter);
     taildir::watch_dir(&option, &callback).unwrap_or(());
 }

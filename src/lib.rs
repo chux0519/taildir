@@ -145,49 +145,49 @@ fn collect(
     file_filter: FileFilter,
     log_filter: LogFilter,
 ) -> Result<Option<(String, Vec<String>)>, BoxError> {
-    let mut name = path.file_name();
-    if name.is_none() {
-        return Ok(None);
-    }
-    // FIXME:
-    name = name.unwrap().to_str();
-    if name.is_none() {
-        return Ok(None);
-    }
-    let name = path.file_name().unwrap().to_str().unwrap();
-    if !file_filter(name) {
-        return Ok(None);
-    }
-    let mut handle = match fds.get_mut(name) {
-        Some(handle) => handle,
-        None => {
-            // When rotating
-            // Should trigger `Remove` and `Create`
-            // But we will not get any of them under debouncing mode
-            // So reopen file here
-            insert_handle(fds, path, false)?;
-            println!("File rotated, reopened: {}", name);
-            return collect(fds, path, file_filter, log_filter);
-        }
-    };
-    let meta = &handle.fd.metadata()?;
-    let end = meta.len();
+    match path.file_name() {
+        Some(file) => {
+            match file.to_str() {
+                Some(name) => {
+                    if !file_filter(name) {
+                        return Ok(None);
+                    }
+                    let mut handle = match fds.get_mut(name) {
+                        Some(handle) => handle,
+                        None => {
+                            // When rotating
+                            // Should trigger `Remove` and `Create`
+                            // But we will not get any of them under debouncing mode
+                            // So reopen file here
+                            insert_handle(fds, path, false)?;
+                            println!("File rotated, reopened: {}", name);
+                            return collect(fds, path, file_filter, log_filter);
+                        }
+                    };
+                    let meta = &handle.fd.metadata()?;
+                    let end = meta.len();
 
-    let mut logs = Vec::new();
-    while handle.pos < end {
-        let mut reader = BufReader::new(&handle.fd);
-        let mut line = String::new();
-        let len = reader.read_line(&mut line)?;
-        if log_filter(&line) {
-            logs.push(line);
-        }
-        handle.pos += len as u64;
-        handle.fd.seek(SeekFrom::Start(handle.pos))?;
-    }
+                    let mut logs = Vec::new();
+                    while handle.pos < end {
+                        let mut reader = BufReader::new(&handle.fd);
+                        let mut line = String::new();
+                        let len = reader.read_line(&mut line)?;
+                        if log_filter(&line) {
+                            logs.push(line);
+                        }
+                        handle.pos += len as u64;
+                        handle.fd.seek(SeekFrom::Start(handle.pos))?;
+                    }
 
-    if end < handle.pos {
-        // Reset
-        handle.pos = 0;
+                    if end < handle.pos {
+                        // Reset
+                        handle.pos = 0;
+                    }
+                    Ok(Some((String::from(name), logs)))
+                }
+                None => Ok(None),
+            }
+        }
+        None => Ok(None),
     }
-    Ok(Some((String::from(name), logs)))
 }
