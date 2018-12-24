@@ -12,8 +12,8 @@ use walkdir::WalkDir;
 
 type HandleMap = HashMap<String, Handle>;
 type BoxError = Box<Error>;
-type LogFilter = fn(&str) -> bool;
-type FileFilter = fn(&str) -> bool;
+type LogFilter = Rc<Fn(&str) -> bool>;
+type FileFilter = Rc<Fn(&str) -> bool>;
 
 #[derive(Debug)]
 struct Handle {
@@ -26,9 +26,9 @@ pub struct WatchOption {
     dir: String,
     debounce_seconds: u64,
     // Determin if the file should be watched
-    file_filter: Rc<FileFilter>,
+    file_filter: LogFilter,
     // Determin if the line should be collected
-    log_filter: Rc<LogFilter>,
+    log_filter: LogFilter,
     // TODO:
     // Support Transform
 }
@@ -48,13 +48,13 @@ impl WatchOption {
     }
 
     #[allow(dead_code)]
-    pub fn file_filter(mut self, filter: Rc<FileFilter>) -> Self {
+    pub fn file_filter(mut self, filter: FileFilter) -> Self {
         self.file_filter = filter;
         self
     }
 
     #[allow(dead_code)]
-    pub fn log_filter(mut self, filter: Rc<LogFilter>) -> Self {
+    pub fn log_filter(mut self, filter: LogFilter) -> Self {
         self.log_filter = filter;
         self
     }
@@ -64,7 +64,7 @@ pub fn watch_dir<F: ?Sized>(option: &WatchOption, callback: &F) -> Result<(), Bo
 where
     F: Fn(&str, Vec<String>),
 {
-    let mut fds: HandleMap = register_dir(&option.dir, *option.file_filter)?;
+    let mut fds: HandleMap = register_dir(&option.dir, option.file_filter.clone())?;
 
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(option.debounce_seconds))?;
@@ -73,7 +73,12 @@ where
     loop {
         match rx.recv() {
             Ok(event) => {
-                match collect_logs(event, &mut fds, *option.file_filter, *option.log_filter) {
+                match collect_logs(
+                    event,
+                    &mut fds,
+                    option.file_filter.clone(),
+                    option.log_filter.clone(),
+                ) {
                     Ok(Some((name, logs))) => callback(&name, logs),
                     Err(e) => println!("watch error: {:?}", e),
                     _ => {}

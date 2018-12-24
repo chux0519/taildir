@@ -17,7 +17,7 @@ fn test_filter(name: &str) -> bool {
 }
 
 fn main() {
-    let option =
-        taildir::WatchOption::new(String::from("./test"), 5).file_filter(Rc::new(test_filter));
+    let option = taildir::WatchOption::new(String::from("./test"), 5)
+        .file_filter(Rc::new(test_filter));
     taildir::watch_dir(&option, &callback).unwrap_or(());
 }
