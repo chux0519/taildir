@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::mpsc::channel;
 use std::time::Duration;
 use walkdir::WalkDir;
@@ -25,9 +26,9 @@ pub struct WatchOption {
     dir: String,
     debounce_seconds: u64,
     // Determin if the file should be watched
-    file_filter: FileFilter,
+    file_filter: Rc<FileFilter>,
     // Determin if the line should be collected
-    log_filter: LogFilter,
+    log_filter: Rc<LogFilter>,
     // TODO:
     // Support Transform
 }
@@ -41,19 +42,19 @@ impl WatchOption {
         WatchOption {
             dir,
             debounce_seconds: seconds,
-            file_filter: identity,
-            log_filter: identity,
+            file_filter: Rc::new(identity),
+            log_filter: Rc::new(identity),
         }
     }
 
     #[allow(dead_code)]
-    pub fn file_filter(mut self, filter: FileFilter) -> Self {
+    pub fn file_filter(mut self, filter: Rc<FileFilter>) -> Self {
         self.file_filter = filter;
         self
     }
 
     #[allow(dead_code)]
-    pub fn log_filter(mut self, filter: LogFilter) -> Self {
+    pub fn log_filter(mut self, filter: Rc<LogFilter>) -> Self {
         self.log_filter = filter;
         self
     }
@@ -63,7 +64,7 @@ pub fn watch_dir<F: ?Sized>(option: &WatchOption, callback: &F) -> Result<(), Bo
 where
     F: Fn(&str, Vec<String>),
 {
-    let mut fds: HandleMap = register_dir(&option.dir, option.file_filter)?;
+    let mut fds: HandleMap = register_dir(&option.dir, *option.file_filter)?;
 
     let (tx, rx) = channel();
     let mut watcher = watcher(tx, Duration::from_secs(option.debounce_seconds))?;
@@ -71,12 +72,13 @@ where
 
     loop {
         match rx.recv() {
-            Ok(event) => match collect_logs(event, &mut fds, option.file_filter, option.log_filter)
-            {
-                Ok(Some((name, logs))) => callback(&name, logs),
-                Err(e) => println!("watch error: {:?}", e),
-                _ => {}
-            },
+            Ok(event) => {
+                match collect_logs(event, &mut fds, *option.file_filter, *option.log_filter) {
+                    Ok(Some((name, logs))) => callback(&name, logs),
+                    Err(e) => println!("watch error: {:?}", e),
+                    _ => {}
+                }
+            }
             Err(e) => println!("watch error: {:?}", e),
         }
     }
