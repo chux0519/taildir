@@ -12,7 +12,7 @@
 
 ```toml
 [dependencies]
-walkdir = "0.1"
+walkdir = "0.2"
 ```
 
 ## Exmaple
