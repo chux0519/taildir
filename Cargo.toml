@@ -1,6 +1,6 @@
 [package]
 name = "taildir"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["chux0519 <chuxdesign@hotmail.com>"]
 edition = "2018"
 description = "`tail -f` for directory"
