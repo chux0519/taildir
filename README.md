@@ -6,7 +6,7 @@
 
 - cross platform & debounce event (via `notify`)
 - file filter
-- row filter
+- line filter
 
 ## Install
 
